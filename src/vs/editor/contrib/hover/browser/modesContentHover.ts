@@ -253,12 +253,14 @@ export class ModesContentHoverWidget extends ContentHoverWidget {
 							// In markdown,
 							// it is possible that we stumble upon language aliases (e.g.js instead of javascript)
 							// it is possible no alias is given in which case we fall back to the current editor lang
+							value = '```' + languageAlias + '\n' + value + '\n ```';
+
 							const modeId = languageAlias
-								? this._modeService.getModeIdForLanguageName(languageAlias)
+								? this._modeService.getModeIdForLanguageName('markdown')
 								: this._editor.getModel().getModeId();
 
 							return this._modeService.getOrCreateMode(modeId).then(_ => {
-								return `<div class="code">${tokenizeToString(value, modeId)}</div>`;
+								return `<div class="code">${tokenizeToString(value, modeId, true)}</div>`;
 							});
 						}
 					});

@@ -13,8 +13,8 @@ export function tokenizeToHtmlContent(text: string, languageId: string): IHTMLCo
 	return _tokenizeToHtmlContent(text, _getSafeTokenizationSupport(languageId));
 }
 
-export function tokenizeToString(text: string, languageId: string, extraTokenClass?: string): string {
-	return _tokenizeToString(text, _getSafeTokenizationSupport(languageId), extraTokenClass);
+export function tokenizeToString(text: string, languageId: string, removeFence = false, extraTokenClass?: string): string {
+	return _tokenizeToString(text, _getSafeTokenizationSupport(languageId), extraTokenClass, removeFence);
 }
 
 function _getSafeTokenizationSupport(languageId: string): ITokenizationSupport {
@@ -28,7 +28,7 @@ function _getSafeTokenizationSupport(languageId: string): ITokenizationSupport {
 	};
 }
 
-function _tokenizeToHtmlContent(text: string, tokenizationSupport: ITokenizationSupport): IHTMLContentElement {
+function _tokenizeToHtmlContent(text: string, tokenizationSupport: ITokenizationSupport, removeFence = false): IHTMLContentElement {
 	var result: IHTMLContentElement = {
 		tagName: 'div',
 		style: 'white-space: pre-wrap',
@@ -49,12 +49,12 @@ function _tokenizeToHtmlContent(text: string, tokenizationSupport: ITokenization
 		});
 	};
 
-	_tokenizeLines(text, tokenizationSupport, emitToken, emitNewLine);
+	_tokenizeLines(text, tokenizationSupport, emitToken, emitNewLine, removeFence);
 
 	return result;
 }
 
-function _tokenizeToString(text: string, tokenizationSupport: ITokenizationSupport, extraTokenClass: string = ''): string {
+function _tokenizeToString(text: string, tokenizationSupport: ITokenizationSupport, extraTokenClass: string = '', removeFence = false): string {
 	if (extraTokenClass && extraTokenClass.length > 0) {
 		extraTokenClass = ' ' + extraTokenClass;
 	}
@@ -70,7 +70,7 @@ function _tokenizeToString(text: string, tokenizationSupport: ITokenizationSuppo
 	};
 
 	result = `<div class="monaco-tokenized-source">`;
-	_tokenizeLines(text, tokenizationSupport, emitToken, emitNewLine);
+	_tokenizeLines(text, tokenizationSupport, emitToken, emitNewLine, removeFence);
 	result += '</div>';
 
 	return result;
@@ -83,20 +83,21 @@ interface IEmitNewLineFunc {
 	(): void;
 }
 
-function _tokenizeLines(text: string, tokenizationSupport: ITokenizationSupport, emitToken: IEmitTokenFunc, emitNewLine: IEmitNewLineFunc): void {
+function _tokenizeLines(text: string, tokenizationSupport: ITokenizationSupport, emitToken: IEmitTokenFunc, emitNewLine: IEmitNewLineFunc, removeFence = false): void {
 	var lines = text.split(/\r\n|\r|\n/);
 	var currentState = tokenizationSupport.getInitialState();
 	for (var i = 0; i < lines.length; i++) {
-		currentState = _tokenizeLine(lines[i], tokenizationSupport, emitToken, currentState);
+		var shouldSkipLineEmit = removeFence && (i === 0 || i === lines.length - 1);
+		currentState = _tokenizeLine(lines[i], tokenizationSupport, emitToken, currentState, shouldSkipLineEmit);
 
 		// Keep new lines
-		if (i < lines.length - 1) {
+		if ((i > 0 || !removeFence) && i < lines.length - 1) {
 			emitNewLine();
 		}
 	}
 }
 
-function _tokenizeLine(line: string, tokenizationSupport: ITokenizationSupport, emitToken: IEmitTokenFunc, startState: IState): IState {
+function _tokenizeLine(line: string, tokenizationSupport: ITokenizationSupport, emitToken: IEmitTokenFunc, startState: IState, shouldSkipEmit = false): IState {
 	var tokenized = tokenizationSupport.tokenize(line, startState),
 		endState = tokenized.endState,
 		tokens = tokenized.tokens,
@@ -122,7 +123,9 @@ function _tokenizeLine(line: string, tokenizationSupport: ITokenizationSupport, 
 		if (safeType.length > 0) {
 			className += ' ' + safeType;
 		}
-		emitToken(className, tokenText);
+		if (!shouldSkipEmit) {
+			emitToken(className, tokenText);
+		}
 	}
 
 	return endState;
